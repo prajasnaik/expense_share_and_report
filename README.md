@@ -36,7 +36,10 @@ This expense sharing app allows users to:
     ```
     python src/init_db.py
     ```
-
+4. Initialize the RSA keys:
+    ```bash
+    python src/auth/generate_keys.py
+    ```
 ### Running the Application
 
 Launch the application by running:
@@ -79,3 +82,4 @@ The application uses SQLite with the following core tables:
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+

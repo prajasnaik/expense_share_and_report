@@ -1,2 +1,3 @@
 database/app.db
 .venv
+src/auth/keys
