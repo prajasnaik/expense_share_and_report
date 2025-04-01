@@ -5,7 +5,6 @@ from base64 import b64encode, b64decode
 
 
 
-
 class UserAuth():
     def __init__(self) -> None:
         self.public_key = self.load_public_key()
