@@ -1,7 +1,11 @@
 from src.auth.user_authentication import UserAuthentication
 
 class ExpenseAuthIntegration:
-    def __init__(self, db_path="database/app.db"):
+    def __init__(
+            self,
+            db_path: str = "database/app.db"
+        ) -> None:
+
         """
         Initialize the authentication integration for the expense sharing app
         
@@ -13,7 +17,12 @@ class ExpenseAuthIntegration:
         # Keep track of the currently logged-in user
         self.current_user = None
     
-    def register_new_user(self, username, password, is_admin=False):
+    def register_new_user(
+            self, 
+            username: str, 
+            password: str, 
+            is_admin: bool = False
+        ) -> tuple[bool, str]:
         """
         Register a new user for the expense sharing app
         
@@ -27,7 +36,11 @@ class ExpenseAuthIntegration:
         else:
             return False, "Registration failed. Username may already be in use."
     
-    def login(self, username, password):
+    def login(
+            self,
+            username: str, 
+            password: str
+        ) -> tuple[bool, str]:
         """
         Log a user into the expense sharing app
         
@@ -42,7 +55,9 @@ class ExpenseAuthIntegration:
         else:
             return False, "Invalid username or password"
     
-    def logout(self):
+    def logout(
+            self
+        ) -> tuple[bool, str]:
         """Log out the current user"""
         if self.current_user:
             username = self.current_user.get('username')
@@ -51,7 +66,11 @@ class ExpenseAuthIntegration:
         else:
             return False, "No user is currently logged in"
     
-    def change_password(self, old_password, new_password):
+    def change_password(
+            self, 
+            old_password: str, 
+            new_password: str
+        ) -> tuple[bool, str]:
         """
         Change the password for the currently logged-in user
         
@@ -72,7 +91,9 @@ class ExpenseAuthIntegration:
         else:
             return False, "Current password is incorrect"
     
-    def get_current_user(self):
+    def get_current_user(
+            self
+        ) -> dict[str, str] | None:
         """
         Get the currently logged-in user
         
@@ -81,7 +102,9 @@ class ExpenseAuthIntegration:
         """
         return self.current_user
     
-    def is_admin(self):
+    def is_admin(
+            self
+        ) -> bool:
         """
         Check if the currently logged-in user is an admin
         
@@ -92,7 +115,11 @@ class ExpenseAuthIntegration:
             return self.current_user.get('is_admin', False)
         return False
     
-    def set_user_admin_status(self, user_id, is_admin):
+    def set_user_admin_status(
+            self,
+            user_id: str, 
+            is_admin: bool
+        ) -> tuple[bool, str]:
         """
         Set or remove admin status for a user (requires current user to be admin)
         
@@ -108,7 +135,10 @@ class ExpenseAuthIntegration:
         else:
             return False, "Failed to update user status"
     
-    def delete_user(self, user_id):
+    def delete_user(
+            self, 
+            user_id: str
+        ) -> tuple[bool, str]:
         """
         Soft delete a user (requires current user to be admin)
         

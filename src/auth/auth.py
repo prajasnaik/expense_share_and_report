@@ -1,7 +1,9 @@
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization
+
 from base64 import b64encode, b64decode
+from cryptography.hazmat.primitives.asymmetric.types import PublicKeyTypes, PrivateKeyTypes
 
 
 
@@ -10,12 +12,12 @@ class UserAuth():
         self.public_key = self.load_public_key()
         self.private_key = self.load_private_key()
 
-    def load_public_key(self) -> None:
+    def load_public_key(self) -> PublicKeyTypes:
         with open("keys/public_key.pem", "rb") as key_file:
             public_key = serialization.load_pem_public_key(key_file.read())
         return public_key
 
-    def load_private_key(self) -> None:
+    def load_private_key(self) -> PrivateKeyTypes:
         with open("keys/private_key.pem", "rb") as key_file:
             private_key = serialization.load_pem_private_key(key_file.read(), password=None)
         return private_key
