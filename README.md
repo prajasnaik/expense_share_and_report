@@ -44,7 +44,7 @@ This expense sharing app allows users to:
 
 Launch the application by running:
 ```
-python src/main.py
+python main.py
 ```
 
 ## Features
