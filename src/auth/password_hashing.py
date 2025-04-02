@@ -1,5 +1,5 @@
 import sqlite3
-from auth import UserAuth
+from src.auth.auth import UserAuth
 
 # Initialize the UserAuth class for password encryption
 auth = UserAuth()

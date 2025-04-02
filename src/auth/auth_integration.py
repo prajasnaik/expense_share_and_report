@@ -1,4 +1,4 @@
-from user_authentication import UserAuthentication
+from src.auth.user_authentication import UserAuthentication
 
 class ExpenseAuthIntegration:
     def __init__(self, db_path="database/app.db"):

@@ -1,8 +1,13 @@
 import sqlite3
 import os
+from src.auth.password_hashing import hash_password  
 
 # Database file path
 DB_PATH = 'database/app.db'
+
+# Default admin credentials
+DEFAULT_ADMIN_USERNAME = "admin"
+DEFAULT_ADMIN_PASSWORD = "admin"
 
 def init_db():
     # Check if database file exists and remove it to start fresh
@@ -26,7 +31,7 @@ def init_db():
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     
-   CREATE TABLE IF NOT EXISTS categories (
+    CREATE TABLE IF NOT EXISTS categories (
         category_id INTEGER PRIMARY KEY AUTOINCREMENT,
         category_name TEXT UNIQUE NOT NULL,
         user_id INTEGER NOT NULL,
@@ -58,6 +63,20 @@ def init_db():
         FOREIGN KEY (payment_method_id) REFERENCES payment_methods(payment_method_id)                      
     );
     ''')
+    
+    # Check if an admin user already exists
+    cursor.execute("SELECT COUNT(*) FROM users WHERE is_admin = 1")
+    admin_count = cursor.fetchone()[0]
+    
+    if admin_count == 0:
+        # Insert default admin user
+        cursor.execute('''
+        INSERT INTO users (username, password_hash, is_admin)
+        VALUES (?, ?, ?)
+        ''', (DEFAULT_ADMIN_USERNAME, hash_password(DEFAULT_ADMIN_PASSWORD), True))
+        print(f"Default admin user created with username: '{DEFAULT_ADMIN_USERNAME}' and password: '{DEFAULT_ADMIN_PASSWORD}'")
+    else:
+        print("Admin user already exists. Skipping admin creation.")
     
     # Commit changes and close connection
     conn.commit()

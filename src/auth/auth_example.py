@@ -1,4 +1,4 @@
-from user_authentication import UserAuthentication
+from src.auth.user_authentication import UserAuthentication
 import os
 import sqlite3
 

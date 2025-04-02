@@ -1,5 +1,5 @@
 import sqlite3
-from auth import UserAuth
+from src.auth.auth import UserAuth
 
 class UserAuthentication:
     def __init__(self, db_path="database/app.db"):
