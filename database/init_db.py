@@ -36,7 +36,6 @@ def init_db():
     CREATE TABLE IF NOT EXISTS categories (
         category_id INTEGER PRIMARY KEY AUTOINCREMENT,
         category_name TEXT UNIQUE NOT NULL,
-        user_id INTEGER NOT NULL,
         is_deleted BOOLEAN NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -51,7 +50,7 @@ def init_db():
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE IF NOT EXISTS expenses (
+    CREATE TABLE IF NOT EXISTS  expenses(
         expense_id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
         category_id INTEGER NOT NULL,
@@ -60,6 +59,7 @@ def init_db():
         expense_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         description TEXT,
         tag TEXT NOT NULL, 
+        is_deleted BOOLEAN NOT NULL DEFAULT 0,
         FOREIGN KEY (user_id) REFERENCES users(user_id),
         FOREIGN KEY (category_id) REFERENCES categories(category_id),
         FOREIGN KEY (payment_method_id) REFERENCES payment_methods(payment_method_id)                      

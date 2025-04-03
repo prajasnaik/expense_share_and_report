@@ -1,14 +1,16 @@
-from src.auth.user_authentication import UserAuthentication
+from src.parser.import_csv import ExpenseCSVImporter
 from src.commands.report_handler import ReportHandler
+from src.auth.auth_integration import ExpenseAuthIntegration
 from src.commands.expense_handler import ExpenseManager
 import sqlite3
 
    
 class CommandHandler:
-    def __init__(self, db_connection, auth):
+    def __init__(self, db_connection, auth: ExpenseAuthIntegration):
         self.auth = auth  # Pass the auth instance to check user roles
         self.expense_manager = ExpenseManager(db_connection, auth)
         self.report_handler = ReportHandler(db_connection)
+        self.expense_importer = ExpenseCSVImporter(current_user_id=auth.get_current_user().get("user_id", 0))
         self.current_user = None
         self.command_map = {
             "help": self.handle_help,
@@ -113,6 +115,8 @@ class CommandHandler:
 
     def handle_add_payment_method(self, args):
         """Add a new payment method."""
+        if len(args) != 1:
+            return "Payment method name must be specified"
         payment_method_name = args[0]
         return self.expense_manager.add_payment_method(payment_method_name)
 
@@ -123,10 +127,10 @@ class CommandHandler:
     def handle_add_expense(self, args):
         """Add a new expense."""
         if len(args) < 5:
-            return "Usage: add_expense <amount> <category> <payment_method> <date (optional)> <description> <tag>"
+            return "Usage: add_expense <amount> <category> <payment_method> <date> <tag> <description (optional)>"
         
-        category, payment_method, amount, description, tag, *optional_date = args
-        date = optional_date[0] if optional_date else None
+        amount, category, payment_method, date, tag, *optional_description = args
+        description = optional_description[0] if optional_description else None
         return self.expense_manager.add_expense(amount, category, payment_method, date, description, tag)
     
     def handle_update_expense(self, args):

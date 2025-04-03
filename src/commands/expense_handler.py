@@ -9,20 +9,34 @@ class ExpenseManager:
         self.db = db_connection
         self.auth = auth
 
-    def list_users(self) -> List[Dict[str, Union[int, str, bool]]]:
+    def list_users(self, format_as_table: bool = True) -> Union[List[Dict[str, Union[int, str, bool]]], str]:
         cursor = self.db.cursor()
         cursor.execute("SELECT user_id, username, is_admin FROM users WHERE is_deleted = 0")
         users = cursor.fetchall()
-        return [{"user_id": user[0], "username": user[1], "is_admin": bool(user[2])} for user in users]
+        
+        user_list = [{"user_id": user[0], "username": user[1], "is_admin": bool(user[2])} for user in users]
+        
+        if not format_as_table:
+            return user_list
+            
+        # Format as table
+        headers = ['User ID', 'Username', 'Admin']
+        formatted_data = [(u["user_id"], u["username"], "Yes" if u["is_admin"] else "No") for u in user_list]
+        
+        return self._format_tabular_report(
+            "User List", 
+            headers, 
+            formatted_data
+        )
 
     def add_user(self, username: str, password: str, role: int) -> str:
         current_user = self.auth.get_current_user()
         if not current_user or not current_user.get("is_admin"):
             return "Error: Only admins can add users."
-        
         role = role == 1
 
-        self.auth.register_new_user(username, password, role)
+        return self.auth.register_new_user(username, password, role)
+
 
     def add_category(self, category_name: str) -> str:
         current_user = self.auth.get_current_user()
@@ -61,13 +75,23 @@ class ExpenseManager:
         methods = cursor.fetchall()
         return [method[0] for method in methods]
 
-    def add_expense(self, amount: float, category: str, payment_method: str, date: str, description: str, tag: Optional[str]) -> str:
+    def add_expense(self, amount: float, category: str, payment_method: str, date: str, description: Optional[str], tag: str) -> str:
         current_user = self.auth.get_current_user()
         if not current_user:
             return "Error: No user is currently logged in."
 
         user_id = current_user["user_id"]
         cursor = self.db.cursor()
+
+        try:
+            dt = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            try:
+                dt = datetime.strptime(date, "%Y-%m-%d")
+                dt = dt.replace(hour=0, minute=0, second=0)
+            except ValueError:
+                return "Error: Incorrect date format. Expected YYYY-MM-DD or YYYY-MM-DD HH:MM:SS"
+        date = dt.strftime("%Y-%m-%d %H:%M:%S")
 
         # Get category_id and payment_method_id
         cursor.execute("SELECT category_id FROM categories WHERE category_name = ? AND is_deleted = 0", (category,))
@@ -101,10 +125,21 @@ class ExpenseManager:
         user_id = current_user["user_id"]
         cursor = self.db.cursor()
     
+        if field == "expense_date":
+            try:
+                dt = datetime.strptime(new_value, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                try:
+                    dt = datetime.strptime(new_value, "%Y-%m-%d")
+                    dt = dt.replace(hour=0, minute=0, second=0)
+                except ValueError:
+                    return "Error: Incorrect date format. Expected YYYY-MM-DD or YYYY-MM-DD HH:MM:SS"
+            new_value = dt.strftime("%Y-%m-%d %H:%M:%S")
+
         # Check if the expense belongs to the logged-in user
         cursor.execute("SELECT user_id FROM expenses WHERE expense_id = ? AND is_deleted = 0", (expense_id,))
         expense_owner = cursor.fetchone()
-        if not expense_owner or expense_owner[0] != user_id:
+        if not expense_owner or expense_owner[0] != user_id or not self.auth.is_admin():
             return "Error: You can only update your own expenses."
     
         try:
@@ -125,7 +160,7 @@ class ExpenseManager:
         # Check if the expense belongs to the logged-in user
         cursor.execute("SELECT user_id FROM expenses WHERE expense_id = ? AND is_deleted = 0", (expense_id,))
         expense_owner = cursor.fetchone()
-        if not expense_owner or expense_owner[0] != user_id:
+        if not expense_owner or expense_owner[0] != user_id or not self.auth.is_admin():
             return "Error: You can only delete your own expenses."
     
         try:
@@ -135,7 +170,7 @@ class ExpenseManager:
         except sqlite3.OperationalError as e:
             return f"Failed to delete expense: {e}"
 
-    def list_expenses(self, filters: Optional[Dict[str, Union[str, List[float]]]] = None) -> Union[str, List[Dict[str, Union[int, float, str]]]]:
+    def list_expenses(self, filters: Optional[Dict[str, Union[str, List[float]]]] = None, format_as_table: bool = True) -> Union[str, List[Dict[str, Union[int, float, str]]]]:
         current_user = self.auth.get_current_user()
         if not current_user:
             return "Error: No user is currently logged in."
@@ -145,41 +180,146 @@ class ExpenseManager:
         cursor = self.db.cursor()
     
         # Base query
-        query = "SELECT expense_id, amount, description, tag, expense_date FROM expenses WHERE is_deleted = 0"
+        query = """
+            SELECT 
+                e.expense_id, e.amount, e.description, e.tag, e.expense_date,
+                c.category_name, p.name as payment_method,
+                u.username
+            FROM expenses e
+            JOIN categories c ON e.category_id = c.category_id
+            JOIN payment_methods p ON e.payment_method_id = p.payment_method_id
+            JOIN users u ON e.user_id = u.user_id
+            WHERE e.is_deleted = 0
+        """
         params = []
     
         # Restrict to user's expenses if not admin
         if not is_admin:
-            query += " AND user_id = ?"
+            query += " AND e.user_id = ?"
             params.append(user_id)
     
         # Apply filters
         if filters:
             if "category" in filters:
-                query += " AND category_id = (SELECT category_id FROM categories WHERE category_name = ?)"
+                query += " AND c.category_name = ?"
                 params.append(filters["category"])
             if "date" in filters:
-                query += " AND expense_date = ?"
+                query += " AND e.expense_date = ?"
                 params.append(filters["date"])
             if "amount_range" in filters:
-                query += " AND amount BETWEEN ? AND ?"
+                query += " AND e.amount BETWEEN ? AND ?"
                 params.extend(filters["amount_range"])
             if "payment_method" in filters:
-                query += " AND payment_method_id = (SELECT payment_method_id FROM payment_methods WHERE name = ?)"
+                query += " AND p.name = ?"
                 params.append(filters["payment_method"])
     
         cursor.execute(query, params)
         expenses = cursor.fetchall()
-        return [
-            {"expense_id": expense[0], "amount": expense[1], "description": expense[2], "tag": expense[3], "date": expense[4]}
+        
+        expense_list = [
+            {
+                "expense_id": expense[0], 
+                "amount": expense[1], 
+                "description": expense[2], 
+                "tag": expense[3], 
+                "date": expense[4],
+                "category": expense[5],
+                "payment_method": expense[6],
+                "username": expense[7]
+            }
             for expense in expenses
         ]
+        
+        if not format_as_table:
+            return expense_list
+            
+        # Format as table
+        headers = ['ID', 'Date', 'Amount', 'Category', 'Description', 'Tag', 'Payment Method', 'Username']
+        formatted_data = [
+            (
+                e["expense_id"], 
+                e["date"], 
+                e["amount"],
+                e["category"], 
+                e["description"] or "-", 
+                e["tag"] or "-", 
+                e["payment_method"],
+                e["username"]
+            ) 
+            for e in expense_list
+        ]
+        
+        return self._format_tabular_report(
+            "Expense List", 
+            headers, 
+            formatted_data,
+            formatters={
+                'Amount': lambda x: f"${x:.2f}"
+            }
+        )
 
     def export_data(self, table_name: str, file_path: str, delimiter: str) -> str:
         cursor = self.db.cursor()
-        cursor.execute(f"SELECT * FROM ?", (table_name,))
+        query = f"SELECT * FROM {table_name}"
+        cursor.execute(query)
         rows = cursor.fetchall()
         with open(file_path, "w") as file:
             for row in rows:
                 file.write(delimiter.join(map(str, row)) + "\n")
         return f"Data exported to {file_path}."
+
+    def _format_tabular_report(self, title, headers, data, formatters=None):
+        """
+        Format data into a tabular report with consistent styling.
+        
+        Args:
+            title: Report title string
+            headers: List of column header strings
+            data: List of data rows (tuples or lists)
+            formatters: Optional dict mapping column names to formatting functions
+            
+        Returns:
+            Formatted report string
+        """
+        # Default column widths
+        col_widths = {header: len(header) + 2 for header in headers}
+        
+        # Determine column widths based on data
+        for row in data:
+            for i, value in enumerate(row):
+                header = headers[i]
+                # Format the value if a formatter exists
+                if formatters and header in formatters:
+                    formatted = formatters[header](value)
+                else:
+                    formatted = str(value)
+                col_widths[header] = max(col_widths[header], len(formatted) + 2)
+        
+        # Create the report
+        report = f"{title}\n"
+        report += "=" * len(title) + "\n\n"
+        
+        # Header row
+        header_row = ""
+        for header in headers:
+            header_row += header.ljust(col_widths[header])
+        report += header_row + "\n"
+        
+        # Separator line
+        separator = "-" * sum(col_widths.values()) + "\n"
+        report += separator
+        
+        # Data rows
+        for row in data:
+            data_row = ""
+            for i, value in enumerate(row):
+                header = headers[i]
+                # Format the value if a formatter exists
+                if formatters and header in formatters:
+                    formatted = formatters[header](value)
+                else:
+                    formatted = str(value)
+                data_row += formatted.ljust(col_widths[header])
+            report += data_row + "\n"
+        
+        return report

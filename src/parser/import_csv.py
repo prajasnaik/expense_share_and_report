@@ -20,8 +20,8 @@ class ExpenseCSVImporter:
         
         # Define the expected structure for the expenses CSV
         self.expected_columns = {
-            'required': ['category_name', 'payment_method_name', 'amount', 'tag'],
-            'optional': ['expense_date', 'description']
+            'required': ['category_name', 'payment_method_name', 'amount', 'tag', 'expense_date'],
+            'optional': ['description']
         }
     
     def validate_csv_structure(self, csv_file):
@@ -63,7 +63,7 @@ class ExpenseCSVImporter:
         
         # First, check if the category exists for this user
         cursor.execute(
-            "SELECT category_id FROM categories WHERE category_name = ? AND user_id = ? AND is_deleted = 0",
+            "SELECT category_id FROM categories WHERE category_name = ? AND is_deleted = 0",
             (category_name, self.current_user_id)
         )
         result = cursor.fetchone()
