@@ -1,30 +1,30 @@
 import sqlite3
 from datetime import datetime
+from sqlite3.dbapi2 import Connection
+from typing import List, Dict, Optional, Union
+from src.auth.auth_integration import ExpenseAuthIntegration
 
 class ExpenseManager:
-    def __init__(self, db_connection, auth):
+    def __init__(self, db_connection: Connection, auth: ExpenseAuthIntegration):
         self.db = db_connection
         self.auth = auth
 
-    def add_user(self, username, password, role):
+    def list_users(self) -> List[Dict[str, Union[int, str, bool]]]:
+        cursor = self.db.cursor()
+        cursor.execute("SELECT user_id, username, is_admin FROM users WHERE is_deleted = 0")
+        users = cursor.fetchall()
+        return [{"user_id": user[0], "username": user[1], "is_admin": bool(user[2])} for user in users]
+
+    def add_user(self, username: str, password: str, role: int) -> str:
         current_user = self.auth.get_current_user()
         if not current_user or not current_user.get("is_admin"):
             return "Error: Only admins can add users."
+        
+        role = role == 1
 
-        is_admin = role.lower() == "admin"
-        password_hash = self.auth.hash_password(password)
-        cursor = self.db.cursor()
-        try:
-            cursor.execute(
-                "INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, ?)",
-                (username, password_hash, is_admin),
-            )
-            self.db.commit()
-            return f"User '{username}' added successfully."
-        except sqlite3.IntegrityError:
-            return f"Error: Username '{username}' already exists."
+        self.auth.register_new_user(username, password, role)
 
-    def add_category(self, category_name):
+    def add_category(self, category_name: str) -> str:
         current_user = self.auth.get_current_user()
         if not current_user or not current_user.get("is_admin"):
             return "Error: Only admins can add categories."
@@ -40,13 +40,13 @@ class ExpenseManager:
         except sqlite3.IntegrityError:
             return f"Error: Category '{category_name}' already exists."
 
-    def list_categories(self):
+    def list_categories(self) -> List[str]:
         cursor = self.db.cursor()
         cursor.execute("SELECT category_name FROM categories WHERE is_deleted = 0")
         categories = cursor.fetchall()
         return [category[0] for category in categories]
 
-    def add_payment_method(self, method_name):
+    def add_payment_method(self, method_name: str) -> str:
         cursor = self.db.cursor()
         try:
             cursor.execute("INSERT INTO payment_methods (name) VALUES (?)", (method_name,))
@@ -55,13 +55,13 @@ class ExpenseManager:
         except sqlite3.IntegrityError:
             return f"Error: Payment method '{method_name}' already exists."
 
-    def list_payment_methods(self):
+    def list_payment_methods(self) -> List[str]:
         cursor = self.db.cursor()
         cursor.execute("SELECT name FROM payment_methods WHERE is_deleted = 0")
         methods = cursor.fetchall()
         return [method[0] for method in methods]
 
-    def add_expense(self, amount, category, payment_method, date, description, tag):
+    def add_expense(self, amount: float, category: str, payment_method: str, date: str, description: str, tag: Optional[str]) -> str:
         current_user = self.auth.get_current_user()
         if not current_user:
             return "Error: No user is currently logged in."
@@ -93,7 +93,7 @@ class ExpenseManager:
         except sqlite3.IntegrityError as e:
             return f"Failed to add expense: {e}"
 
-    def update_expense(self, expense_id, field, new_value):
+    def update_expense(self, expense_id: int, field: str, new_value: Union[str, float]) -> str:
         current_user = self.auth.get_current_user()
         if not current_user:
             return "Error: No user is currently logged in."
@@ -114,7 +114,7 @@ class ExpenseManager:
         except sqlite3.OperationalError as e:
             return f"Failed to update expense: {e}"
     
-    def delete_expense(self, expense_id):
+    def delete_expense(self, expense_id: int) -> str:
         current_user = self.auth.get_current_user()
         if not current_user:
             return "Error: No user is currently logged in."
@@ -135,7 +135,7 @@ class ExpenseManager:
         except sqlite3.OperationalError as e:
             return f"Failed to delete expense: {e}"
 
-    def list_expenses(self, filters=None):
+    def list_expenses(self, filters: Optional[Dict[str, Union[str, List[float]]]] = None) -> Union[str, List[Dict[str, Union[int, float, str]]]]:
         current_user = self.auth.get_current_user()
         if not current_user:
             return "Error: No user is currently logged in."
@@ -175,12 +175,11 @@ class ExpenseManager:
             for expense in expenses
         ]
 
-    def export_data(self, table_name, file_path, delimiter):
+    def export_data(self, table_name: str, file_path: str, delimiter: str) -> str:
         cursor = self.db.cursor()
-        cursor.execute(f"SELECT * FROM ?", (table_name))
+        cursor.execute(f"SELECT * FROM ?", (table_name,))
         rows = cursor.fetchall()
         with open(file_path, "w") as file:
             for row in rows:
                 file.write(delimiter.join(map(str, row)) + "\n")
         return f"Data exported to {file_path}."
-

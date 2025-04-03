@@ -44,7 +44,7 @@ class CommandHandler:
         # Check if the command is admin-only
         if command in self.admin_only_commands:
             current_user = self.auth.get_current_user()
-            if not current_user or not self.auth.is_admin(current_user):
+            if not current_user or not self.auth.is_admin():
                 raise ValueError("This command is restricted to admin users.")
 
         # Execute the command
@@ -52,10 +52,15 @@ class CommandHandler:
 
     def handle_help(self, args):
         """Display help information."""
-        return "Available commands: " + ", ".join(self.command_map.keys())
+        help_text = "Available commands:\n"
+        for command in self.command_map.keys():
+            help_text += f"  - {command}\n"
+        return help_text
 
     def handle_login(self, args):
         """Handle user login."""
+        if len(args) != 2:
+            return "Usage: login <username> <password>"
         username, password = args
         user = self.auth.verify_user(username, password)
         if user:
@@ -78,30 +83,33 @@ class CommandHandler:
 
     def handle_add_user(self, args):
         """Handle adding a new user (admin only)."""
+        if len(args) != 3:
+            return "Usage: add_user <username> <password> <is_admin (0 or 1)>"
+        
         current_user = self.auth.get_current_user()
-        if not current_user or not self.auth.is_admin(current_user):
+        if not current_user or not self.auth.is_admin():
             raise ValueError("Only admins can add new users.")
     
         username, password, is_admin = args
         is_admin = bool(int(is_admin))  # Convert to boolean
     
         # Ensure only admins can create another admin
-        if is_admin and not self.auth.is_admin(current_user):
+        if is_admin and not self.auth.is_admin():
             raise ValueError("Only admins can create another admin user.")
     
-        password_hash = self.auth.hash_password(password)
-        return self.expense_manager.add_user(username, password_hash, is_admin)
+        return self.expense_manager.add_user(username, password, is_admin)
 
     def handle_add_category(self, args):
         """Handle adding a new category (admin only)."""
+        if len(args) != 1:
+            return "Usage: add_category <category_name>"
+        
         category_name = args[0]
-        current_user = self.auth.get_current_user()
-        return self.expense_manager.add_category(category_name, current_user["user_id"])
+        return self.expense_manager.add_category(category_name)
 
     def handle_list_categories(self, args):
         """Handle listing categories."""
-        current_user = self.auth.get_current_user()
-        return self.expense_manager.list_categories(current_user["user_id"])
+        return self.expense_manager.list_categories()
 
     def handle_add_payment_method(self, args):
         """Add a new payment method."""
@@ -114,37 +122,69 @@ class CommandHandler:
 
     def handle_add_expense(self, args):
         """Add a new expense."""
-        user_id, category_id, payment_method_id, amount, description, *optional_date = args
+        if len(args) < 5:
+            return "Usage: add_expense <amount> <category> <payment_method> <date (optional)> <description> <tag>"
+        
+        category, payment_method, amount, description, tag, *optional_date = args
         date = optional_date[0] if optional_date else None
-        return self.expense_manager.add_expense(user_id, category_id, payment_method_id, amount, description, date)
-
+        return self.expense_manager.add_expense(amount, category, payment_method, date, description, tag)
+    
     def handle_update_expense(self, args):
         """Update an existing expense."""
+        if len(args) != 3:
+            return "Usage: update_expense <expense_id> <field> <new_value>"
+
         expense_id, field, new_value = args
         return self.expense_manager.update_expense(expense_id, field, new_value)
 
     def handle_delete_expense(self, args):
         """Delete an expense."""
+        if len(args) != 1:
+            return "Usage: delete_expense <expense_id>"
+
         expense_id = args[0]
         return self.expense_manager.delete_expense(expense_id)
 
     def handle_list_expenses(self, args):
-        """Handle listing expenses."""
-        current_user = self.auth.get_current_user()
-        is_admin = self.auth.is_admin(current_user)
-        return self.expense_manager.list_expenses(
-            user_id=current_user["user_id"], 
-            admin=is_admin
-        )
+        """Handle listing expenses with optional filters."""
+        filters = {}
+    
+        # Parse filters from args
+        for arg in args:
+            if "=" in arg:
+                key, value = arg.split("=", 1)
+                key = key.strip()
+                value = value.strip()
+    
+                if key in ["category", "date", "payment_method"]:
+                    filters[key] = value
+                elif key == "amount_range":
+                    # Parse amount range as a tuple
+                    try:
+                        min_amount, max_amount = map(float, value.split("-"))
+                        filters[key] = (min_amount, max_amount)
+                    except ValueError:
+                        return "Error: Invalid amount range format. Use 'amount_range=min-max'."
+                else:
+                    return f"Error: Unsupported filter '{key}'."
+    
+        # Call the expense manager with parsed filters
+        return self.expense_manager.list_expenses(filters=filters)
 
     def handle_import_expenses(self, args):
         """Import expenses from a file."""
+        if len(args) != 1:
+            return "Usage: import_expenses <file_path>"
+
         file_path = args[0]
         # Implementation for importing expenses from a file
         return f"Expenses imported from {file_path}."
 
     def handle_export_csv(self, args):
         """Export data to a CSV file."""
+        if len(args) != 3:
+            return "Usage: export_csv <table_name> <file_path> <delimiter>"
+
         table_name, file_path, delimiter = args
         return self.expense_manager.export_data(table_name, file_path, delimiter)
     
