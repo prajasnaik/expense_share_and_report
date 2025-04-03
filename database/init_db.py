@@ -1,6 +1,11 @@
 import sqlite3
 import os
-from src.auth.password_hashing import hash_password  
+import sqlite3
+import os
+import sys
+import datetime
+
+from src.auth.password_hashing import hash_password
 
 # Database file path
 DB_PATH = 'database/app.db'
@@ -11,8 +16,6 @@ DEFAULT_ADMIN_PASSWORD = "admin"
 
 def init_db():
     # Check if database file exists and remove it to start fresh
-    if os.path.exists(DB_PATH):
-        os.remove(DB_PATH)
     
     # Connect to database (this will create the file if it doesn't exist)
     conn = sqlite3.connect(DB_PATH)
@@ -83,6 +86,79 @@ def init_db():
     conn.close()
     
     print(f"Database initialized successfully at {DB_PATH}")
+
+def insert_sample_data():
+    """Insert sample data into the tables"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Insert users
+    users = [
+        ("john_doe", hash_password("password1"), 1),
+        ("jane_smith", hash_password("password2"), 0),
+        ("bob_jones", hash_password("password3"), 0)
+    ]
+    
+    for user in users:
+        cursor.execute('''
+        INSERT INTO users (username, password_hash, is_admin)
+        VALUES (?, ?, ?)
+        ''', user)
+    
+    # Insert payment methods
+    payment_methods = [
+        ("Credit Card",),
+        ("Cash",),
+        ("UPI",),
+        ("Bank Transfer",)
+    ]
+    
+    for pm in payment_methods:
+        cursor.execute('''
+        INSERT INTO payment_methods (name)
+        VALUES (?)
+        ''', pm)
+    
+    # Insert categories
+    categories = [
+        ("Food", 1),
+        ("Transportation", 1),
+        ("Entertainment", 1),
+        ("Utilities", 2),
+        ("Shopping", 2),
+        ("Health", 3)
+    ]
+    
+    for category in categories:
+        cursor.execute('''
+        INSERT INTO categories (category_name, user_id)
+        VALUES (?, ?)
+        ''', category)
+    
+    # Insert expenses
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    prev_date = (datetime.datetime.now() - datetime.timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+    older_date = (datetime.datetime.now() - datetime.timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+    
+    expenses = [
+        (1, 1, 1, 25.50, current_date, "Lunch", "meal"),
+        (1, 2, 2, 15.00, prev_date, "Taxi", "travel"),
+        (1, 3, 1, 50.00, older_date, "Movie tickets", "leisure"),
+        (2, 4, 3, 100.00, current_date, "Electricity bill", "bills"),
+        (2, 5, 1, 75.25, prev_date, "New clothes", "clothes"),
+        (3, 6, 4, 200.00, current_date, "Doctor visit", "medical")
+    ]
+    
+    for expense in expenses:
+        cursor.execute('''
+        INSERT INTO expenses (user_id, category_id, payment_method_id, amount, expense_date, description, tag)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', expense)
+    
+    conn.commit()
+    conn.close()
+    
+    print("Sample data inserted successfully!")
 
 if __name__ == "__main__":
     init_db()
