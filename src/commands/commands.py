@@ -152,4 +152,4 @@ class CommandHandler:
         if len(args) == 0:
             return "Please specify type of report"
         report_type = args[0]
-        self.report_handler.report(report_type, args[1:])
+        return (self.report_handler.report(report_type, args[1:]))

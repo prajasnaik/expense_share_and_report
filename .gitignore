@@ -1,12 +1,11 @@
 database/app.db
 .venv
 src/auth/keys
-__pycache__/
-*/__pycache__/
-**/__pycache__/
+
 *.py[cod]
 *$py.class
 src/test_orm.py
 src/model_manager.py
 src/query_builder.py
 src/data_models.py
+**/__pycache__/

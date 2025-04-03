@@ -78,8 +78,8 @@ class ReportHandler:
                 return f"No expenses found between {start_date} and {end_date}"
             
             # Format the results
-            headers = ['ID', 'Date', 'Amount', 'Category', 'Description']
-            data = [(row[0], row[1], row[2], row[4], row[3]) for row in results]
+            headers = ['ID', 'Date', 'Amount', 'Category', 'Description', "Username", "Payment Method"]
+            data = [(row[0], row[1], row[2], row[4], row[3], row[5], row[6]) for row in results]
             
             return self._format_tabular_report(
                 f"Top {n} Expenses from {start_date} to {end_date}", 
@@ -157,16 +157,19 @@ class ReportHandler:
             # Execute query with parameters - find expenses above category average
             results = self._execute_query(
                 """
-                SELECT e.* 
+                SELECT e.expense_id, e.expense_date, e.amount, e.description, e.tag, p.name, u.username, c.category_name, av.average
                 FROM expenses e
-                JOIN (
+                INNER JOIN categories c ON e.category_id = c.category_id
+				INNER JOIN users u ON e.user_id = u.user_id
+				INNER JOIN payment_methods p ON e.payment_method_id = p.payment_method_id
+                INNER JOIN (
                     SELECT c.category_id, AVG(amount) as average 
                     FROM expenses e
                     JOIN categories c ON e.category_id = c.category_id
                     GROUP BY c.category_id
                 ) av ON e.category_id = av.category_id
                 WHERE e.amount > av.average AND e.expense_date BETWEEN ? AND ?
-                ORDER BY (e.amount / av.average) DESC
+                ORDER BY (e.amount / av.average) DESC;
                 """,
                 (start_date, end_date)
             )
@@ -177,14 +180,14 @@ class ReportHandler:
             # Calculate percentage above average for each result
             formatted_data = []
             for row in results:
-                expense_id, date, amount, description, category, category_avg = row
+                expense_id, date, amount, description, tag, payment_method, username, category, category_avg = row
                 percent_above = ((amount - category_avg) / category_avg) * 100
                 formatted_data.append((
-                    expense_id, date, amount, category, description, 
+                    expense_id, date, amount, category, description, tag, payment_method, username,
                     category_avg, f"{percent_above:.1f}%"
                 ))
             
-            headers = ['ID', 'Date', 'Amount', 'Category', 'Description', 'Category Avg', '% Above']
+            headers = ['ID', 'Date', 'Amount', 'Category', 'Description', 'Tag', 'Payment Method', 'Username', 'Category Avg', '% Above']
             
             return self._format_tabular_report(
                 "Expenses Above Category Average", 

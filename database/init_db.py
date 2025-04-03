@@ -5,7 +5,6 @@ import os
 import sys
 import datetime
 
-from src.auth.password_hashing import hash_password
 
 # Database file path
 DB_PATH = 'database/app.db'
@@ -71,15 +70,15 @@ def init_db():
     cursor.execute("SELECT COUNT(*) FROM users WHERE is_admin = 1")
     admin_count = cursor.fetchone()[0]
     
-    if admin_count == 0:
-        # Insert default admin user
-        cursor.execute('''
-        INSERT INTO users (username, password_hash, is_admin)
-        VALUES (?, ?, ?)
-        ''', (DEFAULT_ADMIN_USERNAME, hash_password(DEFAULT_ADMIN_PASSWORD), True))
-        print(f"Default admin user created with username: '{DEFAULT_ADMIN_USERNAME}' and password: '{DEFAULT_ADMIN_PASSWORD}'")
-    else:
-        print("Admin user already exists. Skipping admin creation.")
+    # if admin_count == 0:
+    #     # Insert default admin user
+    #     cursor.execute('''
+    #     INSERT INTO users (username, password_hash, is_admin)
+    #     VALUES (?, ?, ?)
+    #     ''', (DEFAULT_ADMIN_USERNAME, hash_password(DEFAULT_ADMIN_PASSWORD), True))
+    #     print(f"Default admin user created with username: '{DEFAULT_ADMIN_USERNAME}' and password: '{DEFAULT_ADMIN_PASSWORD}'")
+    # else:
+    #     print("Admin user already exists. Skipping admin creation.")
     
     # Commit changes and close connection
     conn.commit()
@@ -92,48 +91,48 @@ def insert_sample_data():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Insert users
-    users = [
-        ("john_doe", hash_password("password1"), 1),
-        ("jane_smith", hash_password("password2"), 0),
-        ("bob_jones", hash_password("password3"), 0)
-    ]
+    # # Insert users
+    # users = [
+    #     ("john_doe", hash_password("password1"), 1),
+    #     ("jane_smith", hash_password("password2"), 0),
+    #     ("bob_jones", hash_password("password3"), 0)
+    # ]
     
-    for user in users:
-        cursor.execute('''
-        INSERT INTO users (username, password_hash, is_admin)
-        VALUES (?, ?, ?)
-        ''', user)
+    # for user in users:
+    #     cursor.execute('''
+    #     INSERT INTO users (username, password_hash, is_admin)
+    #     VALUES (?, ?, ?)
+    #     ''', user)
     
-    # Insert payment methods
-    payment_methods = [
-        ("Credit Card",),
-        ("Cash",),
-        ("UPI",),
-        ("Bank Transfer",)
-    ]
+    # # Insert payment methods
+    # payment_methods = [
+    #     ("Credit Card",),
+    #     ("Cash",),
+    #     ("UPI",),
+    #     ("Bank Transfer",)
+    # ]
     
-    for pm in payment_methods:
-        cursor.execute('''
-        INSERT INTO payment_methods (name)
-        VALUES (?)
-        ''', pm)
+    # for pm in payment_methods:
+    #     cursor.execute('''
+    #     INSERT INTO payment_methods (name)
+    #     VALUES (?)
+    #     ''', pm)
     
-    # Insert categories
-    categories = [
-        ("Food", 1),
-        ("Transportation", 1),
-        ("Entertainment", 1),
-        ("Utilities", 2),
-        ("Shopping", 2),
-        ("Health", 3)
-    ]
+    # # Insert categories
+    # categories = [
+    #     ("Food", 1),
+    #     ("Transportation", 1),
+    #     ("Entertainment", 1),
+    #     ("Utilities", 2),
+    #     ("Shopping", 2),
+    #     ("Health", 3)
+    # ]
     
-    for category in categories:
-        cursor.execute('''
-        INSERT INTO categories (category_name, user_id)
-        VALUES (?, ?)
-        ''', category)
+    # for category in categories:
+    #     cursor.execute('''
+    #     INSERT INTO categories (category_name, user_id)
+    #     VALUES (?, ?)
+    #     ''', category)
     
     # Insert expenses
     current_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -141,12 +140,13 @@ def insert_sample_data():
     older_date = (datetime.datetime.now() - datetime.timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
     
     expenses = [
-        (1, 1, 1, 25.50, current_date, "Lunch", "meal"),
-        (1, 2, 2, 15.00, prev_date, "Taxi", "travel"),
-        (1, 3, 1, 50.00, older_date, "Movie tickets", "leisure"),
-        (2, 4, 3, 100.00, current_date, "Electricity bill", "bills"),
-        (2, 5, 1, 75.25, prev_date, "New clothes", "clothes"),
-        (3, 6, 4, 200.00, current_date, "Doctor visit", "medical")
+        # (1, 1, 1, 25.50, current_date, "Lunch", "meal"),
+        # (1, 2, 2, 15.00, prev_date, "Taxi", "travel"),
+        # (1, 3, 1, 50.00, older_date, "Movie tickets", "leisure"),
+        # (2, 4, 3, 100.00, current_date, "Electricity bill", "bills"),
+        # (2, 5, 1, 75.25, prev_date, "New clothes", "clothes"),
+        # (3, 6, 4, 200.00, current_date, "Doctor visit", "medical")
+        (3, 2, 1, 45.0, prev_date, "Train", "travel")
     ]
     
     for expense in expenses:
@@ -162,3 +162,4 @@ def insert_sample_data():
 
 if __name__ == "__main__":
     init_db()
+    insert_sample_data()
