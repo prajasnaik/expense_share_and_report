@@ -11,7 +11,35 @@ class ReportHandler:
         """Initialize with a database connection"""
         self.db = db_connection
 
-    def report_top_N_expenses(self, n: int, date_range: str):
+    def report(self, report_type, args):
+        """
+        Dynamically call the appropriate report method based on report_type.
+        
+        Args:
+            report_type: The type of report to generate (e.g., 'top_expenses')
+            args: List of arguments to pass to the report method
+            
+        Returns:
+            The report string or an error message if the report type doesn't exist
+        """
+        # Construct the method name
+        method_name = f"report_{report_type}"
+        
+        # Check if the method exists in this class
+        if not hasattr(self, method_name):
+            return f"Error: Report type '{report_type}' is not supported."
+        
+        # Get the method
+        report_method = getattr(self, method_name)
+        
+        # Call the method with provided arguments
+        try:
+            return report_method(*args)
+        except TypeError as e:
+            # Handle case where arguments don't match the method's parameters
+            return f"Error calling {report_type} report: {str(e)}"
+
+    def report_top_expenses(self, n: int, date_range: str):
         """
         Generate a report of the top N expenses by amount within a date range.
         
