@@ -7,7 +7,7 @@ import sqlite3
 class CommandHandler:
     def __init__(self, db_connection, auth):
         self.auth = auth  # Pass the auth instance to check user roles
-        self.expense_manager = ExpenseManager(db_connection)
+        self.expense_manager = ExpenseManager(db_connection, auth)
         self.report_handler = ReportHandler(db_connection)
         self.current_user = None
         self.command_map = {
