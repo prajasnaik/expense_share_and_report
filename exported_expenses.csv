@@ -1,0 +1,2 @@
+expense_id,user_id,category_id,payment_method_id,amount,expense_date,description,tag
+1,1,1,1,250.0,2025-02-12 00:00:00,None,Travel

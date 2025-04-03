@@ -2,6 +2,8 @@ from src.parser.import_csv import ExpenseCSVImporter
 from src.commands.report_handler import ReportHandler
 from src.auth.auth_integration import ExpenseAuthIntegration
 from src.commands.expense_handler import ExpenseManager
+from src.parser.import_csv import ExpenseCSVImporter
+import os
 import sqlite3
 
    
@@ -10,7 +12,7 @@ class CommandHandler:
         self.auth = auth  # Pass the auth instance to check user roles
         self.expense_manager = ExpenseManager(db_connection, auth)
         self.report_handler = ReportHandler(db_connection)
-        self.expense_importer = ExpenseCSVImporter(current_user_id=auth.get_current_user().get("user_id", 0))
+        if auth.get_current_user(): self.expense_importer = ExpenseCSVImporter(current_user_id=auth.get_current_user().get("user_id", 0))
         self.current_user = None
         self.command_map = {
             "help": self.handle_help,
@@ -179,10 +181,32 @@ class CommandHandler:
         """Import expenses from a file."""
         if len(args) != 1:
             return "Usage: import_expenses <file_path>"
-
+    
         file_path = args[0]
-        # Implementation for importing expenses from a file
-        return f"Expenses imported from {file_path}."
+    
+        # Ensure the file exists
+        if not os.path.exists(file_path):
+            return f"Error: File '{file_path}' does not exist."
+    
+        # Initialize the ExpenseCSVImporter
+        current_user = self.auth.get_current_user()
+        if not current_user:
+            return "Error: No user is currently logged in."
+    
+        user_id = current_user.get("user_id")
+        csv_importer = ExpenseCSVImporter(auth=self.auth, current_user_id=user_id)
+    
+        # Import the expenses from the CSV file
+        try:
+            success = csv_importer.import_expenses_csv(file_path)
+            if success:
+                return f"Expenses imported successfully from '{file_path}'."
+            else:
+                return f"Failed to import expenses from '{file_path}'."
+        except PermissionError as e:
+            return f"Permission Error: {str(e)}"
+        except Exception as e:
+            return f"Error importing expenses: {str(e)}"
 
     def handle_export_csv(self, args):
         """Export data to a CSV file."""

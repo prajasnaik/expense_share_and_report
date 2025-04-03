@@ -1,19 +1,17 @@
 import os
 import csv
 import sqlite3
-import argparse
 from datetime import datetime
-import re
-from pathlib import Path
+from src.auth.auth_integration import ExpenseAuthIntegration
 
 class ExpenseCSVImporter:
-    def __init__(self, db_path='database/app.db', current_user_id=None):
+    def __init__(self, auth: ExpenseAuthIntegration, current_user_id=None):
         """Initialize the CSV importer with the database path and user ID."""
-        self.db_path = db_path
+        self.auth = auth  # Use the auth object to check user roles
+        # Use os.path.join to construct the database path
+        base_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory of the current file
+        self.db_path = os.path.join(base_dir, '../../database/app.db')  # Construct the relative path to the database
         self.current_user_id = current_user_id
-        
-        if not os.path.exists(db_path):
-            raise FileNotFoundError(f"Database file not found at {db_path}")
         
         if not current_user_id:
             raise ValueError("A valid user ID must be provided")
@@ -44,16 +42,7 @@ class ExpenseCSVImporter:
                 if unknown_columns:
                     return False, f"Unknown columns found: {', '.join(unknown_columns)}"
                 
-                # Validate at least one row of data
-                try:
-                    first_row = next(reader)
-                    if len(first_row) != len(header):
-                        return False, "Data row length doesn't match header length"
-                except StopIteration:
-                    return False, "CSV file has no data rows"
-                
                 return True, "CSV structure is valid"
-                
         except Exception as e:
             return False, f"Error validating CSV: {str(e)}"
     
@@ -61,15 +50,19 @@ class ExpenseCSVImporter:
         """Get the category ID for a given category name, or create a new category if it doesn't exist."""
         cursor = conn.cursor()
         
-        # First, check if the category exists for this user
+        # Check if the category exists
         cursor.execute(
             "SELECT category_id FROM categories WHERE category_name = ? AND is_deleted = 0",
-            (category_name, self.current_user_id)
+            (category_name,)
         )
         result = cursor.fetchone()
         
         if result:
             return result[0]
+        
+        # Only admins can add new categories
+        if not self.auth.is_admin():
+            raise PermissionError("Only admins can add new categories.")
         
         # If the category doesn't exist, create it
         cursor.execute(
@@ -91,6 +84,10 @@ class ExpenseCSVImporter:
         
         if result:
             return result[0]
+        
+        # Only admins can add new payment methods
+        if not self.auth.is_admin():
+            raise PermissionError("Only admins can add new payment methods.")
         
         # If the payment method doesn't exist, create it
         cursor.execute(
@@ -124,13 +121,29 @@ class ExpenseCSVImporter:
                         if not any(row.values()):
                             continue
                         
+                        # Check if the current user is an admin
+                        is_admin = self.auth.is_admin()
+                        
                         # Get or create category and payment method
                         category_id = self.get_category_id(conn, row['category_name'])
                         payment_method_id = self.get_payment_method_id(conn, row['payment_method_name'])
                         
+                        # Determine the user_id for the expense
+                        if is_admin:
+                            # Admins can import expenses for any user
+                            if 'user_id' in row and row['user_id']:
+                                user_id = int(row['user_id'])
+                            else:
+                                print(f"Warning: Missing 'user_id' in row {rows_inserted + rows_failed + 1}. Skipping.")
+                                rows_failed += 1
+                                continue
+                        else:
+                            # Normal users can only import their own expenses
+                            user_id = self.current_user_id
+                        
                         # Prepare values for insertion
                         expense_data = {
-                            'user_id': self.current_user_id,
+                            'user_id': user_id,
                             'category_id': category_id,
                             'payment_method_id': payment_method_id,
                             'amount': float(row['amount']),
@@ -152,11 +165,12 @@ class ExpenseCSVImporter:
                         
                     except ValueError as e:
                         print(f"Error in row {rows_inserted + rows_failed + 1}: {str(e)}")
-                        if "could not convert string to float" in str(e):
-                            print(f"  Amount must be a valid number. Got: '{row.get('amount', '')}'")
                         rows_failed += 1
                     except sqlite3.Error as e:
                         print(f"Database error in row {rows_inserted + rows_failed + 1}: {str(e)}")
+                        rows_failed += 1
+                    except PermissionError as e:
+                        print(f"Permission error in row {rows_inserted + rows_failed + 1}: {str(e)}")
                         rows_failed += 1
                     except Exception as e:
                         print(f"Error processing row {rows_inserted + rows_failed + 1}: {str(e)}")
@@ -176,37 +190,3 @@ class ExpenseCSVImporter:
         finally:
             if 'conn' in locals():
                 conn.close()
-
-def import_expenses_for_user(csv_file, user_id, db_path='database/app.db'):
-    """Utility function to import expenses for a user from a given CSV file."""
-    try:
-        importer = ExpenseCSVImporter(db_path=db_path, current_user_id=user_id)
-        return importer.import_expenses_csv(csv_file)
-    except Exception as e:
-        print(f"Error importing expenses: {str(e)}")
-        return False
-
-def main():
-    parser = argparse.ArgumentParser(description='Import expense data from CSV files.')
-    parser.add_argument('csv_file', help='Path to the CSV file to import')
-    parser.add_argument('--user-id', '-u', type=int, required=True, help='User ID of the currently authenticated user')
-    parser.add_argument('--db', '-d', help='Path to the database file', default='database/app.db')
-    
-    args = parser.parse_args()
-    
-    # Validate CSV file exists
-    if not os.path.isfile(args.csv_file):
-        print(f"Error: CSV file not found at {args.csv_file}")
-        return 1
-    
-    try:
-        importer = ExpenseCSVImporter(db_path=args.db, current_user_id=args.user_id)
-        success = importer.import_expenses_csv(args.csv_file)
-        return 0 if success else 1
-    
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")
-        return 1
-
-if __name__ == "__main__":
-    exit(main())

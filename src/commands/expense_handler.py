@@ -259,13 +259,55 @@ class ExpenseManager:
         )
 
     def export_data(self, table_name: str, file_path: str, delimiter: str) -> str:
+        current_user = self.auth.get_current_user()
+        if not current_user:
+            return "Error: No user is currently logged in."
+    
+        user_id = current_user["user_id"]
+        is_admin = current_user.get("is_admin", False)
+    
         cursor = self.db.cursor()
-        query = f"SELECT * FROM {table_name}"
-        cursor.execute(query)
+    
+        # Restrict normal users to export only their own data
+        if not is_admin:
+            if table_name != "expenses":
+                return "Error: Normal users can only export their own expenses."
+            query = """
+                SELECT e.expense_id, u.user_id, c.category_name, p.name as payment_method_name, 
+                       e.amount, e.expense_date, e.description, e.tag
+                FROM expenses e
+                JOIN categories c ON e.category_id = c.category_id
+                JOIN payment_methods p ON e.payment_method_id = p.payment_method_id
+                JOIN users u ON e.user_id = u.user_id
+                WHERE e.user_id = ? AND e.is_deleted = 0
+            """
+            cursor.execute(query, (user_id,))
+        else:
+            # Admins can export all data
+            query = """
+                SELECT e.expense_id, u.user_id, c.category_name, p.name as payment_method_name, 
+                       e.amount, e.expense_date, e.description, e.tag
+                FROM expenses e
+                JOIN categories c ON e.category_id = c.category_id
+                JOIN payment_methods p ON e.payment_method_id = p.payment_method_id
+                JOIN users u ON e.user_id = u.user_id
+                WHERE e.is_deleted = 0
+            """
+            cursor.execute(query)
+    
         rows = cursor.fetchall()
+    
+        # Fetch column headers
+        headers = [description[0] for description in cursor.description]
+    
+        # Write data to the specified file
         with open(file_path, "w") as file:
+            # Write headers
+            file.write(delimiter.join(headers) + "\n")
+            # Write rows
             for row in rows:
                 file.write(delimiter.join(map(str, row)) + "\n")
+    
         return f"Data exported to {file_path}."
 
     def _format_tabular_report(self, title, headers, data, formatters=None):
