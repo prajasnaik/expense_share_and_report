@@ -97,8 +97,7 @@ class CommandHandler:
         if is_admin and not self.auth.is_admin():
             raise ValueError("Only admins can create another admin user.")
     
-        password_hash = self.auth.hash_password(password)
-        return self.expense_manager.add_user(username, password_hash, is_admin)
+        return self.expense_manager.add_user(username, password, is_admin)
 
     def handle_add_category(self, args):
         """Handle adding a new category (admin only)."""
@@ -106,13 +105,11 @@ class CommandHandler:
             return "Usage: add_category <category_name>"
         
         category_name = args[0]
-        current_user = self.auth.get_current_user()
-        return self.expense_manager.add_category(category_name, current_user["user_id"])
+        return self.expense_manager.add_category(category_name)
 
     def handle_list_categories(self, args):
         """Handle listing categories."""
-        current_user = self.auth.get_current_user()
-        return self.expense_manager.list_categories(current_user["user_id"])
+        return self.expense_manager.list_categories()
 
     def handle_add_payment_method(self, args):
         """Add a new payment method."""
