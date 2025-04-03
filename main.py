@@ -11,7 +11,6 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "database", "app.db")
 def main():
     # Initialize the database
     init_db()
-    
     # Connect to the database
     db_connection = sqlite3.connect(DB_PATH)
     

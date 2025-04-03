@@ -177,7 +177,7 @@ class ExpenseManager:
 
     def export_data(self, table_name, file_path, delimiter):
         cursor = self.db.cursor()
-        cursor.execute(f"SELECT * FROM {table_name}")
+        cursor.execute(f"SELECT * FROM ?", (table_name))
         rows = cursor.fetchall()
         with open(file_path, "w") as file:
             for row in rows:

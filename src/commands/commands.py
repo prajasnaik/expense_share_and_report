@@ -1,4 +1,5 @@
 from src.auth.user_authentication import UserAuthentication
+from src.commands.report_handler import ReportHandler
 from src.commands.expense_handler import ExpenseManager
 import sqlite3
 
@@ -7,6 +8,7 @@ class CommandHandler:
     def __init__(self, db_connection, auth):
         self.auth = auth  # Pass the auth instance to check user roles
         self.expense_manager = ExpenseManager(db_connection)
+        self.report_handler = ReportHandler(db_connection)
         self.current_user = None
         self.command_map = {
             "help": self.handle_help,
@@ -23,7 +25,8 @@ class CommandHandler:
             "delete_expense": self.handle_delete_expense,
             "list_expenses": self.handle_list_expenses,
             "import_expenses": self.handle_import_expenses,
-            "export_csv": self.handle_export_csv
+            "export_csv": self.handle_export_csv,
+            "report" : self.handle_report
         }
         self.admin_only_commands = {
             "add_user",
@@ -31,6 +34,7 @@ class CommandHandler:
             "import_expenses",
             "export_csv",
             "list_users",
+            "report"
         }  # Commands restricted to admins
 
     def execute_command(self, command, args):
@@ -143,3 +147,9 @@ class CommandHandler:
         """Export data to a CSV file."""
         table_name, file_path, delimiter = args
         return self.expense_manager.export_data(table_name, file_path, delimiter)
+    
+    def handle_report(self, args):
+        if len(args) == 0:
+            return "Please specify type of report"
+        report_type = args[0]
+        self.report_handler.report(report_type, args[1:])
