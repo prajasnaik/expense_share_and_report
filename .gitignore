@@ -1,6 +1,4 @@
-database/app.db
 .venv
-src/auth/keys
 
 *.py[cod]
 *$py.class

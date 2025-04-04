@@ -61,14 +61,11 @@ class ReportHandler:
             # Execute query with parameters
             results = self._execute_query(
                 """
-                SELECT e.expense_id, e.expense_date, e.amount, e.description, 
-                       c.category_name, u.username, p.name
-                FROM expenses e
-                JOIN categories c ON e.category_id = c.category_id
-                JOIN users u ON u.user_id = e.user_id
-                JOIN payment_methods p ON p.payment_method_id = e.payment_method_id 
-                WHERE e.expense_date BETWEEN ? AND ?
-                ORDER BY e.amount DESC
+                SELECT expense_id, expense_date, amount, description, 
+                       category_name, username, payment_method_name
+                FROM denormalized_expenses 
+                WHERE expense_date BETWEEN ? AND ?
+                ORDER BY amount DESC
                 LIMIT ?
                 """, 
                 (start_date, end_date, n)
@@ -113,11 +110,10 @@ class ReportHandler:
             # Execute query with parameters
             results = self._execute_query(
                 """
-                SELECT SUM(e.amount) as total_spending, c.category_name
-                FROM expenses e
-                JOIN categories c ON e.category_id = c.category_id
-                WHERE c.category_name = ? AND e.expense_date BETWEEN ? AND ?
-                GROUP BY c.category_name
+                SELECT SUM(amount) as total_spending, category_name
+                FROM denormalized_expenses
+                WHERE category_name = ? AND expense_date BETWEEN ? AND ?
+                GROUP BY category_name
                 """,
                 (category_name, start_date, end_date)
             )
@@ -157,17 +153,13 @@ class ReportHandler:
             # Execute query with parameters - find expenses above category average
             results = self._execute_query(
                 """
-                SELECT e.expense_id, e.expense_date, e.amount, e.description, e.tag, p.name, u.username, c.category_name, av.average
-                FROM expenses e
-                INNER JOIN categories c ON e.category_id = c.category_id
-				INNER JOIN users u ON e.user_id = u.user_id
-				INNER JOIN payment_methods p ON e.payment_method_id = p.payment_method_id
+                SELECT e.expense_id, e.expense_date, e.amount, e.description, e.tag, e.payment_method_name, e.username, e.category_name, av.average
+                FROM denormalized_expenses e
                 INNER JOIN (
-                    SELECT c.category_id, AVG(amount) as average 
-                    FROM expenses e
-                    JOIN categories c ON e.category_id = c.category_id
-                    GROUP BY c.category_id
-                ) av ON e.category_id = av.category_id
+                    SELECT category_name, AVG(amount) as average 
+                    FROM denormalized_expenses
+                    GROUP BY category_name
+                ) av ON e.category_name = av.category_name
                 WHERE e.amount > av.average AND e.expense_date BETWEEN ? AND ?
                 ORDER BY (e.amount / av.average) DESC;
                 """,
@@ -224,14 +216,13 @@ class ReportHandler:
             results = self._execute_query(
                 """
                 SELECT 
-                    strftime('%m', e.expense_date) as month_num,
-                    c.category_name,
-                    SUM(e.amount) as total
-                FROM expenses e
-                JOIN categories c ON e.category_id = c.category_id
-                WHERE e.expense_date BETWEEN ? AND ?
-                GROUP BY month_num, c.category_name
-                ORDER BY month_num, c.category_name
+                    strftime('%m', date(expense_date)) as month_num,
+                    category_name,
+                    SUM(amount) as total_expenditure
+                FROM denormalized_expenses
+                WHERE date(expense_date) BETWEEN ? AND ?
+                GROUP BY month_num, category_name
+                ORDER BY month_num, category_name
                 """,
                 (start_date, end_date)
             )
@@ -267,13 +258,12 @@ class ReportHandler:
             monthly_spending = self._execute_query(
                 """
                 SELECT 
-                    strftime('%m', e.expense_date) as month_num,
-                    u.username,
-                    SUM(e.amount) as total_spent
-                FROM expenses e
-                JOIN users u ON e.user_id = u.user_id
-                WHERE e.expense_date BETWEEN ? AND ?
-                GROUP BY month_num, u.username
+                    strftime('%m', expense_date) as month_num,
+                    username,
+                    SUM(amount) as total_spent
+                FROM denormalized_expenses
+                WHERE expense_date BETWEEN ? AND ?
+                GROUP BY month_num, username
                 ORDER BY month_num, total_spent DESC
                 """,
                 (start_date, end_date)
@@ -313,14 +303,13 @@ class ReportHandler:
             results = self._execute_query(
                 """
                 SELECT 
-                    c.category_name,
-                    COUNT(e.expense_id) as usage_count,
-                    SUM(e.amount) as total_spent,
-                    AVG(e.amount) as avg_transaction
-                FROM expenses e
-                JOIN categories c ON e.category_id = c.category_id
-                WHERE e.expense_date BETWEEN ? AND ?
-                GROUP BY c.category_name
+                    category_name,
+                    COUNT(expense_id) as usage_count,
+                    SUM(amount) as total_spent,
+                    AVG(amount) as avg_transaction
+                FROM denormalized_expenses
+                WHERE expense_date BETWEEN ? AND ?
+                GROUP BY category_name
                 ORDER BY usage_count DESC
                 """,
                 (start_date, end_date)
@@ -367,13 +356,12 @@ class ReportHandler:
             payment_methods = self._execute_query(
                 """
                 SELECT 
-                    p.name as payment_method,
-                    COUNT(e.expense_id) as usage_count,
-                    SUM(e.amount) as total_spent
-                FROM expenses e
-                JOIN payment_methods p ON e.payment_method_id = p.payment_method_id
-                WHERE e.expense_date BETWEEN ? AND ?
-                GROUP BY p.name
+                    payment_method_name,
+                    COUNT(expense_id) as usage_count,
+                    SUM(amount) as total_spent
+                FROM denormalized_expenses
+                WHERE expense_date BETWEEN ? AND ?
+                GROUP BY payment_method_name
                 ORDER BY total_spent DESC
                 """,
                 (start_date, end_date)
@@ -384,7 +372,7 @@ class ReportHandler:
             
             # Get total spending for percentage calculation
             total_spending_result = self._execute_query(
-                "SELECT SUM(amount) FROM expenses WHERE expense_date BETWEEN ? AND ?",
+                "SELECT SUM(amount) FROM denormalized_expenses WHERE expense_date BETWEEN ? AND ?",
                 (start_date, end_date)
             )
             total_spent = total_spending_result[0][0] if total_spending_result and total_spending_result[0][0] else 0
@@ -432,13 +420,13 @@ class ReportHandler:
             results = self._execute_query(
                 """
                 SELECT 
-                    e.tag,
-                    COUNT(e.expense_id) as expense_count,
-                    SUM(e.amount) as total_spent,
-                    AVG(e.amount) as avg_amount
-                FROM expenses e
-                WHERE e.expense_date BETWEEN ? AND ?
-                GROUP BY e.tag
+                    tag,
+                    COUNT(expense_id) as expense_count,
+                    SUM(amount) as total_spent,
+                    AVG(amount) as avg_amount
+                FROM denormalized_expenses
+                WHERE expense_date BETWEEN ? AND ?
+                GROUP BY tag
                 ORDER BY expense_count DESC
                 """,
                 (start_date, end_date)

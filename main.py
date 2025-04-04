@@ -1,24 +1,26 @@
 import sqlite3
 import os
-from database.init_db import init_db  # Import the init_db function
+from database.init_db import init_db, update_reporting_db, init_reporting_db  # Import the init_db function
 from src.auth.auth_integration import ExpenseAuthIntegration
 from src.parser.parser import Parser, ParserError
 from src.commands.commands import CommandHandler
 
 # Define the correct path to the database file
 DB_PATH = os.path.join(os.path.dirname(__file__), "database", "app.db")
+REPORTING_DB_PATH =  os.path.join(os.path.dirname(__file__), "database", "reporting.db")
 
 def main():
     # Initialize the database
     init_db()
+    init_reporting_db()
     # Connect to the database
     db_connection = sqlite3.connect(DB_PATH)
-    
+    reporting_db_connection = sqlite3.connect(REPORTING_DB_PATH)
     # Initialize authentication system
     auth = ExpenseAuthIntegration(db_path=DB_PATH)
     
     # Initialize command handler
-    command_handler = CommandHandler(db_connection=db_connection, auth=auth)
+    command_handler = CommandHandler(db_connection=db_connection, reporting_db_connection=reporting_db_connection, auth=auth)
     
     # Initialize parser
     parser = Parser()
@@ -32,6 +34,10 @@ def main():
             user_input = input("Enter command: ").strip()
             if user_input.lower() in ["exit", "quit"]:
                 print("Exiting the application. Goodbye!")
+                try: 
+                    update_reporting_db()
+                except Exception as e:
+                    print(f"Falied to save reporting_database: {e}")
                 break
             
             # Parse the input

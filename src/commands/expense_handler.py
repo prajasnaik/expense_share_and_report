@@ -104,13 +104,16 @@ class ExpenseManager:
         if not payment_method_id:
             return f"Error: Payment method '{payment_method}' does not exist."
 
+        # Set the created_at and updated_at timestamps
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         try:
             cursor.execute(
                 '''
-                INSERT INTO expenses (user_id, category_id, payment_method_id, amount, description, expense_date, tag)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO expenses (user_id, category_id, payment_method_id, amount, description, expense_date, tag, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''',
-                (user_id, category_id[0], payment_method_id[0], amount, description, date, tag),
+                (user_id, category_id[0], payment_method_id[0], amount, description, date, tag, timestamp, timestamp),
             )
             self.db.commit()
             return "Expense added successfully."
@@ -121,10 +124,10 @@ class ExpenseManager:
         current_user = self.auth.get_current_user()
         if not current_user:
             return "Error: No user is currently logged in."
-    
+
         user_id = current_user["user_id"]
         cursor = self.db.cursor()
-    
+
         if field == "expense_date":
             try:
                 dt = datetime.strptime(new_value, "%Y-%m-%d %H:%M:%S")
@@ -141,9 +144,11 @@ class ExpenseManager:
         expense_owner = cursor.fetchone()
         if not expense_owner or expense_owner[0] != user_id or not self.auth.is_admin():
             return "Error: You can only update your own expenses."
-    
+
+        # Update the specified field and the updated_at timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
-            cursor.execute(f"UPDATE expenses SET {field} = ? WHERE expense_id = ?", (new_value, expense_id))
+            cursor.execute(f"UPDATE expenses SET {field} = ?, updated_at = ? WHERE expense_id = ?", (new_value, timestamp, expense_id))
             self.db.commit()
             return "Expense updated successfully."
         except sqlite3.OperationalError as e:

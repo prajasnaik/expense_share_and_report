@@ -2,16 +2,16 @@ from src.parser.import_csv import ExpenseCSVImporter
 from src.commands.report_handler import ReportHandler
 from src.auth.auth_integration import ExpenseAuthIntegration
 from src.commands.expense_handler import ExpenseManager
-from src.parser.import_csv import ExpenseCSVImporter
+from database.init_db import update_reporting_db
 import os
 import sqlite3
 
    
 class CommandHandler:
-    def __init__(self, db_connection, auth: ExpenseAuthIntegration):
+    def __init__(self, db_connection, reporting_db_connection, auth: ExpenseAuthIntegration):
         self.auth = auth  # Pass the auth instance to check user roles
         self.expense_manager = ExpenseManager(db_connection, auth)
-        self.report_handler = ReportHandler(db_connection)
+        self.report_handler = ReportHandler(reporting_db_connection)
         if auth.get_current_user(): self.expense_importer = ExpenseCSVImporter(current_user_id=auth.get_current_user().get("user_id", 0))
         self.current_user = None
         self.command_map = {
@@ -30,7 +30,8 @@ class CommandHandler:
             "list_expenses": self.handle_list_expenses,
             "import_expenses": self.handle_import_expenses,
             "export_csv": self.handle_export_csv,
-            "report" : self.handle_report
+            "report" : self.handle_report,
+            "update_report_db" : self.handle_update_report_db,
         }
         self.admin_only_commands = {
             "add_user",
@@ -38,7 +39,8 @@ class CommandHandler:
             "import_expenses",
             "export_csv",
             "list_users",
-            "report"
+            "report",
+            "update_report_db"
         }  # Commands restricted to admins
 
     def execute_command(self, command, args):
@@ -207,6 +209,17 @@ class CommandHandler:
             return f"Permission Error: {str(e)}"
         except Exception as e:
             return f"Error importing expenses: {str(e)}"
+
+    def handle_update_report_db(self, args):
+        if len(args) != 0:
+            return "Update report db takes no other arguments"
+
+        try:
+            update_reporting_db()
+            return "Successfully updated reporting db"
+        except Exception as e:
+            return f"Failed to update reporting db: {e}"
+
 
     def handle_export_csv(self, args):
         """Export data to a CSV file."""
