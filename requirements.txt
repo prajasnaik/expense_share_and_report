@@ -1,2 +1,1 @@
-sqlite3
-cryptography==44.0.3
+cryptography==44.0.2
